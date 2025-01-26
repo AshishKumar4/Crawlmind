@@ -40,7 +40,7 @@ async def test_scraper_scrape_content_success():
         # Create AsyncMock instances for playwright components
         mock_playwright_instance = AsyncMock()
         mock_browser = AsyncMock()
-        mock_page = MagicMock()
+        mock_page = AsyncMock()
 
         # Configure the mock_playwright to return a mock_playwright_instance when start() is called
         mock_playwright.return_value.start = AsyncMock(return_value=mock_playwright_instance)
@@ -97,7 +97,7 @@ async def test_scraper_scrape_content_error():
         # Create AsyncMock instances for playwright components
         mock_playwright_instance = AsyncMock()
         mock_browser = AsyncMock()
-        mock_page = MagicMock()
+        mock_page = AsyncMock()
 
         # Configure the mock_playwright to return a mock_playwright_instance when start() is called
         mock_playwright.return_value.start = AsyncMock(return_value=mock_playwright_instance)

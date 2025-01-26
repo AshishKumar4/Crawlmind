@@ -1,5 +1,3 @@
-# crawlmind/scraper.py
-
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +10,7 @@ from urllib.parse import urljoin, urlparse
 from playwright.async_api import async_playwright, Page, Browser, Response
 from bs4 import BeautifulSoup, Tag, NavigableString
 
-from crawlmind.logger import logger  # Ensure logger is properly set up in logger.py
+from crawlmind.logger import logger 
 
 @dataclass
 class ScrapeResponse:
@@ -53,13 +51,11 @@ class Scraper:
     async def new_page(self) -> Page:
         await self.start_browser()
         page = await self.browser.new_page(
-            viewport={
-                "width": self.options.viewport.width,
-                "height": self.options.viewport.height,
-                "device_scale_factor": self.options.viewport.device_scale_factor,
-            }
+            viewport=self.options.viewport.__dict__
         )
-
+        return await self.setup_new_page(page)
+    
+    async def setup_new_page(self, page: Page) -> None:
         page.on('framenavigated', lambda frame: asyncio.create_task(self.handle_frame_navigated(page, frame)))
         page.on('response', lambda response: asyncio.create_task(self.handle_response(response)))
         return page
@@ -97,6 +93,38 @@ class Scraper:
 
         return soup
 
+    async def close_browser(self) -> None:
+        if self.browser:
+            await self.browser.close()
+            self.browser = None
+            await self.playwright.stop()
+            logger.info('Browser closed')
+
+    async def scrape_content(self, url: str) -> ScrapeResponse:
+        try:
+            page = await self.new_page()
+            try:
+                logger.info(f"Scraping {url}")
+                await page.goto(url, wait_until='load', timeout=self.options.navigation_timeout)
+                await page.wait_for_load_state(state="networkidle")
+                response = await self.get_page_content(page)
+                await page.close()
+                return response
+            except Exception as e:
+                logger.error(f"Error scraping {url}: {e}")
+                await page.close()
+                return ScrapeResponse(content='', links=[])
+        except Exception as e:
+            logger.error(f"Error scraping {url}: {e}")
+            return ScrapeResponse(content='', links=[])
+
+    async def __aenter__(self) -> Scraper:
+        await self.start_browser()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close_browser()
+        
     def is_tag(self, element: Any) -> bool:
         return isinstance(element, Tag)
 
@@ -220,28 +248,3 @@ class Scraper:
 
         unique_links = list(set(links))
         return ScrapeResponse(content=content, links=unique_links)
-
-    async def close_browser(self) -> None:
-        if self.browser:
-            await self.browser.close()
-            self.browser = None
-            await self.playwright.stop()
-            logger.info('Browser closed')
-
-    async def scrape_content(self, url: str) -> ScrapeResponse:
-        page = await self.new_page()
-        logger.info(f"Scraping {url}")
-        try:
-            await page.goto(url, wait_until='load', timeout=self.options.navigation_timeout)
-            response = await self.get_page_content(page)
-            return response
-        except Exception as e:
-            logger.error(f"Error scraping {url}: {e}")
-            return ScrapeResponse(content='', links=[])
-
-    async def __aenter__(self) -> Scraper:
-        await self.start_browser()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.close_browser()

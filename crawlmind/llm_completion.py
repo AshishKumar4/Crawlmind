@@ -11,12 +11,14 @@ from typing import (
     List,
     Optional,
     Union,
-    TypedDict
+    TypedDict,
+    Iterable,
 )
 
 # For real usage, install the openai package that supports the usage pattern you demonstrated.
 # pip install openai
 from openai import OpenAI
+from openai.types.chat import ChatCompletionToolParam
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -44,7 +46,6 @@ class LLMCompletionStreamingResponse:
 
 # Union type for return values
 LLMCompletionResponse = Union[LLMCompletionNonStreamingResponse, LLMCompletionStreamingResponse]
-
 
 class LLMFunctionParameters(TypedDict, total=False):
     """ Equivalent to the TypeScript interface `LLMFunctionParameters`. """
@@ -82,8 +83,7 @@ class LLMCompletionRequest:
     """
     model: str
     system_prompt: str
-    messages: List[Dict[str, str]]  # e.g. [{"role": "user", "content": "..."}]
-    workspaceId: str
+    messages: List[Dict[str, str]]  # e.g. [{"role": "user", "content": "..."}
     response_format: Optional[Dict[str, Any]] = None
     tools: Optional[List[LLMTool]] = None
     max_tokens: Optional[int] = None
@@ -127,7 +127,7 @@ async def llmCompletionGeneral(
         openai_tools = None
         tool_choice = None
         if tools:
-            openai_tools = []
+            openai_tools: Iterable[ChatCompletionToolParam] = []
             tool_choice = "auto"
             for tool in tools:
                 openai_tools.append({
@@ -244,75 +244,10 @@ async def llmCompletionWithRetry(
         raise RuntimeError(error_message)
 
     response = await llmCompletion(request)
-    if not response.content:
-        logger.error("Received empty content; retrying ...")
+    if not response.content and response.functionCalls is None:
+        logger.error(f"Received empty content; retrying ..., response so far: {response}, request: {request}")
         return await llmCompletionWithRetry(request, retries - 1)
     return response
-
-
-async def llmChatCompletion(
-    model: str,
-    object_id: str,
-    system_prompt: str,
-    messages: List[Dict[str, str]],
-    response_format: str,
-    retries: int,
-    workspace_id: str,
-    tools: Optional[List[LLMTool]] = None,
-    max_tokens: Optional[int] = None
-) -> Any:
-    """
-    Port of `llmChatCompletion` from TS. If `response_format == "json_object"`,
-    tries to parse the content as JSON; else returns the raw text.
-    """
-    if retries < 0:
-        error_message = f"Failed to get GPT response after {retries} retries for object: {object_id}"
-        logger.error(error_message)
-        raise RuntimeError(error_message)
-
-    request_obj = LLMCompletionRequest(
-        model=model,
-        system_prompt=system_prompt,
-        messages=messages,
-        workspaceId=workspace_id,
-        response_format={"type": response_format},  # not used heavily here, but included
-        tools=tools,
-        max_tokens=max_tokens
-    )
-
-    response = await llmCompletion(request_obj)
-    content = response.content
-    if not content:
-        logger.error(f"Empty LLM response for {object_id}; retrying...")
-        return await llmChatCompletion(
-            model=model,
-            object_id=object_id,
-            system_prompt=system_prompt,
-            messages=messages,
-            response_format=response_format,
-            retries=retries - 1,
-            workspace_id=workspace_id,
-            tools=tools,
-            max_tokens=max_tokens
-        )
-
-    if response_format == "json_object":
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parse error for object {object_id}: {e}. Retrying...")
-            return await llmChatCompletion(
-                model=model,
-                object_id=object_id,
-                system_prompt=system_prompt,
-                messages=messages,
-                response_format=response_format,
-                retries=retries - 1,
-                workspace_id=workspace_id,
-                tools=tools,
-                max_tokens=max_tokens
-            )
-    return content
 
 
 # ----------------------------------------------------------------------

@@ -11,7 +11,6 @@ from crawlmind.llm_completion import (
     llmCompletion,
     llmCompletionStreaming,
     llmCompletionWithRetry,
-    llmChatCompletion,
     LLMCompletionRequest,
     LLMTool,
     LLMFunction,
@@ -45,7 +44,6 @@ async def test_llmCompletion_non_streaming_success():
             model="gpt-4o",
             system_prompt="system prompt",
             messages=[{"role": "user", "content": "Hello?"}],
-            workspaceId="test_workspace"
         )
         response = await llmCompletion(request)
         assert isinstance(response, LLMCompletionNonStreamingResponse)
@@ -77,7 +75,6 @@ async def test_llmCompletion_non_streaming_empty():
             model="gpt-4o",
             system_prompt="system prompt",
             messages=[{"role": "user", "content": "Hello?"}],
-            workspaceId="test_workspace"
         )
         response = await llmCompletion(request)
         assert response.content == ""
@@ -116,7 +113,6 @@ async def test_llmCompletion_non_streaming_with_function_calls():
             model="gpt-4o",
             system_prompt="system prompt",
             messages=[{"role": "user", "content": "How's the weather?"}],
-            workspaceId="test_workspace"
         )
         response = await llmCompletion(request)
         assert response.content == "The weather is sunny."
@@ -150,7 +146,6 @@ async def test_llmCompletion_streaming_success():
             model="gpt-4o",
             system_prompt="system prompt",
             messages=[{"role": "user", "content": "Hello streaming?"}],
-            workspaceId="test_workspace"
         )
         response = await llmCompletionStreaming(request)
         assert isinstance(response, LLMCompletionStreamingResponse)
@@ -184,7 +179,6 @@ async def test_llmCompletionWithRetry_success_on_second_attempt():
             model="gpt-4o",
             system_prompt="system prompt",
             messages=[{"role": "user", "content": "Hello?"}],
-            workspaceId="test_workspace"
         )
         resp = await llmCompletionWithRetry(request, retries=2)
         assert resp.content == "Retry success!"
@@ -206,7 +200,6 @@ async def test_llmCompletionWithRetry_exhausted():
             model="gpt-4o",
             system_prompt="system prompt",
             messages=[{"role": "user", "content": "Hello?"}],
-            workspaceId="test_workspace"
         )
         with pytest.raises(RuntimeError) as excinfo:
             await llmCompletionWithRetry(request, retries=1)
@@ -215,9 +208,9 @@ async def test_llmCompletionWithRetry_exhausted():
 
 
 @pytest.mark.asyncio
-async def test_llmChatCompletion_json():
+async def test_llmCompletion_json():
     """
-    Test llmChatCompletion with JSON output.
+    Test llmCompletion with JSON output.
     """
     response_json = {"key": "value"}
     with patch("crawlmind.llm_completion.OpenAI") as mock_openai_class:
@@ -234,24 +227,26 @@ async def test_llmChatCompletion_json():
             ]
         )
 
-        result = await llmChatCompletion(
-            model="gpt-4o",
-            object_id="obj123",
-            system_prompt="system prompt",
-            messages=[{"role": "user", "content": "Gimme JSON."}],
-            response_format="json_object",
+        result = await llmCompletionWithRetry(
+            request=LLMCompletionRequest(
+                model="gpt-4o",
+                system_prompt="system prompt",
+                messages=[{"role": "user", "content": "Gimme JSON."}],
+                response_format="json_object",
+            ),
             retries=1,
-            workspace_id="test_workspace"
         )
+        
+        obj = json.loads(result.content)
 
-        assert isinstance(result, dict)
-        assert result["key"] == "value"
+        assert isinstance(obj, dict)
+        assert obj["key"] == "value"
 
 
 @pytest.mark.asyncio
-async def test_llmChatCompletion_text():
+async def test_llmCompletion_text():
     """
-    Test llmChatCompletion with plain text output (no JSON parsing).
+    Test llmCompletion with plain text output (no JSON parsing).
     """
     mock_text = "Just a plain text response."
     with patch("crawlmind.llm_completion.OpenAI") as mock_openai_class:
@@ -267,18 +262,18 @@ async def test_llmChatCompletion_text():
             ]
         )
 
-        result = await llmChatCompletion(
-            model="gpt-4o",
-            object_id="obj123",
-            system_prompt="system prompt",
-            messages=[{"role": "user", "content": "Gimme text."}],
-            response_format="text",
+        result = await llmCompletionWithRetry(
+            request=LLMCompletionRequest(
+                model="gpt-4o",
+                system_prompt="system prompt",
+                messages=[{"role": "user", "content": "Gimme text."}],
+                response_format="text",
+            ),
             retries=1,
-            workspace_id="test_workspace"
         )
 
-        assert isinstance(result, str)
-        assert result == mock_text
+        assert isinstance(result.content, str)
+        assert result.content == mock_text
 
 
 @pytest.mark.asyncio
@@ -290,7 +285,6 @@ async def test_llmCompletion_unsupported_model():
         model="other-model",
         system_prompt="Prompt",
         messages=[{"role": "user", "content": "Hello?"}],
-        workspaceId="test_workspace"
     )
 
     with pytest.raises(ValueError) as excinfo:
