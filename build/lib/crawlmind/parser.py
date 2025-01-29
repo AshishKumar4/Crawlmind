@@ -57,7 +57,7 @@ class StructuredContentModel(BaseModel):
     dates_timelines: List[str] = Field(default_factory=list)
     links_references: List[str] = Field(default_factory=list)
     other_keywords: List[str] = Field(default_factory=list)
-    miscellaneous: str
+    unstructured_content: str
 
 # -------------------------------------------------------------------------
 # 3) Prompts and helper
@@ -163,7 +163,7 @@ class ContentParser:
             dates_timelines=parsed_model.dates_timelines or [],
             links_references=parsed_model.links_references or [],
             other_keywords=parsed_model.other_keywords or [],
-            unstructured_content=parsed_model.miscellaneous or ""
+            unstructured_content=parsed_model.unstructured_content or ""
         )
 
         # 4) Filter out small words from certain fields

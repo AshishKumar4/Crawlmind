@@ -1,0 +1,17 @@
+Metadata-Version: 2.2
+Name: crawlmind
+Version: 0.1.0
+Summary: A LLM-powered OSINT web crawler package
+Home-page: https://github.com/ashishkumar4/crawlmind
+Author: Ashish Kumar Singh
+Author-email: Your Name <you@example.com>
+Project-URL: Source Code, https://github.com/yourname/crawlmind
+Project-URL: Tracker, https://github.com/yourname/crawlmind/issues
+Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Dynamic: author
+Dynamic: home-page
+Dynamic: requires-python
